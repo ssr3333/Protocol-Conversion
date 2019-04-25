@@ -13,6 +13,7 @@
 !*.UVOPT
 !*.UVOPTX
 !*.UV2
+*.BAK
  
 # Source Files
 !*.A51
