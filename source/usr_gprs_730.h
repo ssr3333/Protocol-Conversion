@@ -22,15 +22,18 @@
 #define USR_TYPE_UCS8		0x33	//中英文编码方式
 
 // 变量定义
-extern unsigned char usr_cmdbuf[20];
-extern unsigned char usr_cmdlen;
-extern unsigned char usr_rssi;
+extern unsigned char usr_cmdbuf[20];//指令缓冲区
+extern unsigned char usr_cmdlen;	//指令长度
+extern unsigned char usr_rssi;		//信号质量
+extern unsigned char usr_sim_status;//SIM卡是否已插入
+extern unsigned char usr_sms_result;//发送短信是否成功
+extern unsigned char usr_work_status;	//工作状态
 
 // 功能函数定义
-void  usr_send_serial_cmd(unsigned char* usr_cmdbuf, unsigned char usr_cmdlen); 	//发送串口指令
-unsigned char usr_send_sms(unsigned char* dstnum, unsigned char type, unsigned char* text, unsigned char len);	//发送短信
+void usr_send_serial_cmd(unsigned char* usr_cmdbuf, unsigned char usr_cmdlen); 	//发送串口指令
+void usr_send_sms(unsigned char* dstnum, unsigned char type, unsigned char* text, unsigned char len);	//发送短信
 //unsigned char usr_get_sockalk(unsigned char channel);	//获取socketA连接状态
-unsigned char usr_get_csq();	//查询模块网络信号质量
+void usr_get_csq();	//查询模块网络信号质量
 unsigned char usr_processing(unsigned char* dat, unsigned char len);	//处理接收到的数据
 
 #endif /* __USR_GPRS_730_H_ */

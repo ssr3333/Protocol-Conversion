@@ -11,10 +11,13 @@
 #include "usr_gprs_730.h"
 
 
-uchar idata sms_buf[140];	//短信缓存
-uchar idata phone[11] = 0;	//电话号码
-uchar SMS310_Add = 3; 	//模块地址初始值
-bit SMS310_Unread = 0;	//有未读短信标志
+// --------------------  变量定义  --------------------
+unsigned char idata sms_buf[140];	//短信缓存
+unsigned char sms_len = 0;			//短信长度
+unsigned char xdata phone[5][11];	//电话号码
+unsigned char sms310_add = 3; 		//模块地址初始值
+unsigned char sms310_unread = 0;		//有未读短信标志
+unsigned char sms310_wait_send = 0;	//待发短信条数
 
 
 /* =============================================================================
@@ -23,16 +26,16 @@ bit SMS310_Unread = 0;	//有未读短信标志
  * 输  出：应答数据byte长度
  * 功  能：
  * ===========================================================================*/
-uchar SMS310Processing(uchar* ptr, uchar len)
+unsigned char SMS310Processing(unsigned char* ptr, unsigned char len)
 {
-	uchar ret_len = 0;	//应答数据长度
-	uchar i = 0;	//循环用变量
+	unsigned char ret_len = 0;	//应答数据长度
+	unsigned char i, j;	//循环用变量
 
 	//检查固定包头
 	if(ptr[0] == 0xAF && ptr[1] == 0x4C && ptr[2] == 0xED && ptr[3] == 0xF8)
 	{
 		//检查地址是否匹配，或者是改地址的指令应答
-		if((ptr[4] == SMS310_Add) || (ptr[5] == 0x04))
+		if((ptr[4] == sms310_add) || (ptr[5] == 0x04))
 		{
 			//检查校验和
 			if(CalculateSum(ptr, len) == 0x00)
@@ -71,8 +74,8 @@ uchar SMS310Processing(uchar* ptr, uchar len)
 					case 0x03:	//设置地址
 						if(ptr[6] == 0x00 && ptr[7] == 0x01 && ptr[8] == 0x00)
 						{
-							SMS310_Add = ptr[9];//保存新地址
-							IapWrite(0x0000, SMS310_Add);//更新EEPROM
+							sms310_add = ptr[9];//保存新地址
+							IapWrite(0x0000, sms310_add);//更新EEPROM
 							
 							//生成应答数据包
 							ptr[5] = 0x04;	//设置地址响应码
@@ -88,7 +91,7 @@ uchar SMS310Processing(uchar* ptr, uchar len)
 					case 0x04:	//设置地址得到了回复
 						if(ptr[4] == 0x03)	//地址
 						{
-							SMS310_Add = ptr[4];
+							sms310_add = ptr[4];
 							return 240 + 4;
 						}
 						break;
@@ -97,21 +100,34 @@ uchar SMS310Processing(uchar* ptr, uchar len)
 						{
 							//指令处理
 							//ptr[7-8]数据字节数
-							//ptr[9-10]  0100
-							//ptr[11-21] 目标手机号码，11bytes, ASCII码
-//							for(i = 0; i < 11; i++)	//保存目标手机号
-//							{
-//								phone[i] = ptr[11 + i];
-//							}
+							//ptr[9-10]  0100 目标手机个数
+							//ptr[11 至 10 + ptr[9] * 11] 目标手机号码，11bytes, ASCII码
+							if(ptr[9] > 1)	//如果有多条短信
+							{
+								sms310_wait_send += ptr[9];	//获取目标手机数量
+								for(j = 0; j < ptr[9]; j++)
+								{
+									for(i = 0; i < 11; i++)	//保存目标手机号
+									{
+										phone[j][i] = ptr[11 + (11 * j)+ i];
+									}
+								}
+							}
+							else
+							{
+								sms310_wait_send++;
+								for(i = 0; i < 11; i++)
+								{
+									phone[sms310_wait_send - 1][i] = ptr[11 + i];
+								}
+							}
 							//ptr[22-23] 短信内容字节数
 							//ptr[24-(len-3) 短信内容
-//							for(i = 0; i < ptr[22]; i++)//保存短信内容
-//							{
-//								sms_buf[i] = ptr[24 + i];
-//							}
-
-							//SendSMS(phone, sms_buf, ptr[22]);
-							usr_send_sms(ptr + 11, USR_TYPE_UCS8, ptr + 24, ptr[22]);	//转到USR_GPRS_730发送
+							sms_len = ptr[11 + (11 * ptr[9])];
+							for(i = 0; i < sms_len; i++)//保存短信内容
+							{
+								sms_buf[i] = ptr[13 + (11 * ptr[9]) + i];
+							}
 
 							//生成应答数据包
 							ptr[5] = 0x06;	//发送短信响应码
@@ -129,17 +145,20 @@ uchar SMS310Processing(uchar* ptr, uchar len)
 						{
 							ptr[5] = 0x08;	//查询状态响应码
 							ptr[6] = 0x00;
-							if(SMS310_Unread == 0)	//所有短信均已读
+							if(sms310_unread == 0)	//所有短信均已读
 							{
 								ptr[7] = 0x07;	//参数字节数
 								ptr[8] = 0x00;
 								ptr[9] = 0x01;	//短信全部已读
 								ptr[10] = 0x00;	//
 								ptr[11] = 0x01;	//核心状态
-								ptr[12] = 0x01;	//SIM卡状态
-								ptr[13] = 0x01;	//模块工作状态
-								ptr[14] = 0x00;	//短信发送结果
-								ptr[15] = 0x01;	//GSM信号状态
+//								ptr[12] = 0x01;	//SIM卡状态
+								ptr[12] = usr_sim_status;
+//								ptr[13] = 0x01;	//模块工作状态
+								ptr[13] = usr_work_status;
+//								ptr[14] = 0x00;	//短信发送结果
+								ptr[14] = usr_sms_result;
+								ptr[15] = (usr_rssi > 10? 0x01 : 0x00);	//GSM信号状态
 
 								return SMS310MakeResponse(ptr, 16);
 							}
@@ -150,10 +169,13 @@ uchar SMS310Processing(uchar* ptr, uchar len)
 								ptr[9] = 0x00;	//短信未读
 								ptr[10] = 0x00;	//
 								ptr[11] = 0x01;	//核心状态
-								ptr[12] = 0x01;	//SIM卡状态
-								ptr[13] = 0x01;	//模块工作状态
-								ptr[14] = 0x01;	//短信发送结果
-								ptr[15] = 0x01;	//GSM信号状态
+//								ptr[12] = 0x01;	//SIM卡状态
+								ptr[12] = usr_sim_status;
+//								ptr[13] = 0x01;	//模块工作状态
+								ptr[13] = usr_work_status;
+//								ptr[14] = 0x00;	//短信发送结果
+								ptr[14] = usr_sms_result;
+								ptr[15] = (usr_rssi > 10? 0x01 : 0x00);	//GSM信号状态
 								ptr[16] = 0x02;	//短信序号
 								ptr[17] = 0x00;
 								ptr[18] = 0x31;	//来源号码
@@ -175,7 +197,7 @@ uchar SMS310Processing(uchar* ptr, uchar len)
 								ptr[34] = 0x6C;
 								ptr[35] = 0x6F;
 								
-								SMS310_Unread = 0;	//清未读标志
+								sms310_unread--;	//读一条清一条
 
 								return SMS310MakeResponse(ptr, 36);
 							}
@@ -198,9 +220,9 @@ uchar SMS310Processing(uchar* ptr, uchar len)
  * 输  出：数据byte长度
  * 功  能：
  * ===========================================================================*/
-uchar SMS310MakeResponse(uchar* ptr, uchar len)
+unsigned char SMS310MakeResponse(unsigned char* ptr, unsigned char len)
 {
-	uchar i = 0;
+	unsigned char i = 0;
 	uint sum = 0;
 	for(i = 0; i < len; i++)
 	{
@@ -218,9 +240,9 @@ uchar SMS310MakeResponse(uchar* ptr, uchar len)
  * 输  出：数据byte长度
  * 功  能：
  * ===========================================================================*/
-//uchar SMS310GetVersion(uchar* ptr, uchar add)
+//unsigned char SMS310GetVersion(unsigned char* ptr, unsigned char add)
 //{
-//	uchar i = 0;
+//	unsigned char i = 0;
 //	uint sum = 0;
 //
 // 	ptr[0] = 0xAF;		//数据包头
@@ -256,9 +278,9 @@ uchar SMS310MakeResponse(uchar* ptr, uchar len)
  * 输  出：数据byte长度
  * 功  能：
  * ===========================================================================*/
-//uchar SMS310SetAdd(uchar* ptr, uchar oldadd, uchar newadd)
+//unsigned char SMS310SetAdd(unsigned char* ptr, unsigned char oldadd, unsigned char newadd)
 //{
-//	uchar i = 0;
+//	unsigned char i = 0;
 //	uint sum = 0;
 //
 //	ptr[0] = 0xAF;		//数据包头
@@ -290,9 +312,9 @@ uchar SMS310MakeResponse(uchar* ptr, uchar len)
  * 输  出：0-校验和正确，0xFF-校验和失败
  * 功  能：
  * ===========================================================================*/
-uchar CalculateSum(uchar* ptr, uchar len)
+unsigned char CalculateSum(unsigned char* ptr, unsigned char len)
 {
-	uchar i = 0;
+	unsigned char i = 0;
 	uint count = 0;
 	//计算数据包中 除校验和部分 的和
 	for(i = 0; i < (len - 2); i++)
@@ -316,30 +338,10 @@ uchar CalculateSum(uchar* ptr, uchar len)
  * 输  出：
  * 功  能：
  * ===========================================================================*/
-//void SendSMS(uchar* dst_phone, uchar* dat, uchar dat_len)
+//void SendSMS(unsigned char* dst_phone, unsigned char* dat, unsigned char dat_len)
 //{
 //	Uart2Send("SMS", 3);
 //	Uart2Send(dst_phone, 11);
 //	Uart2Send("#", 1);
 //	Uart2Send(dat, dat_len);
 //}
-
-
-/*
-AF 4C ED F8 
-03 
-05 00 
-14 00 
-01 00 
-31 38 32 37 33 30 36 31 36 36 36 
-05 00 68 65 6C 6C 6F 
-54 07 
-
-
-AF 4C ED F8 03 05 00 14 00 01 00 31 38 32 37 33 30 36 31 36 36 36 05 00 68 65 6C 6C 6F 54 07 00
-
-
-75 73 72 2E 63 6E 23 41 54 2B 53 4D 53 45 4E 44 3D 22 31 38 32 37 33 30 36 31 36 36 36 22 2C 33 2C 22 68 65 6C 6C 6F 22 0D 00
-75 73 72 2E 63 6E 23 41 54 2B 53 4D 53 45 4E 44 3D 22 31 38 32 37 33 30 36 31 36 36 36 22 2C 21 	
-
-*/

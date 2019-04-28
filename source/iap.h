@@ -1,13 +1,25 @@
 #ifndef __IAP_H_
 #define __IAP_H_
 
-/* 1T系列寄存器地址
+/* 1T系列寄存器地址及功能位定义
 sfr     IAP_DATA    =   0xC2;	//数据寄存器
 sfr     IAP_ADDRH   =   0xC3;	//地址高字节
 sfr     IAP_ADDRL   =   0xC4;	//地址低字节
+
 sfr     IAP_CMD     =   0xC5;	//命令模式
+#define IAP_IDL     0x00
+#define IAP_READ    0x01
+#define IAP_WRITE   0x02
+#define IAP_ERASE   0x03
+
 sfr     IAP_TRIG    =   0xC6;	//命令触发寄存器
+
 sfr     IAP_CONTR   =   0xC7;	//控制寄存器
+#define IAPEN       0x80
+#define SWBS        0x40
+#define SWRST       0x20
+#define CMD_FAIL    0x10
+
 */
 
 //不同时钟频率下的IAP操作等待时长参数
@@ -23,8 +35,8 @@ sfr     IAP_CONTR   =   0xC7;	//控制寄存器
 
 
 void IapIdle();	//关闭IAP
-char IapRead(int addr);	//IAP读
-void IapWrite(int addr, char dat); //IAP写
-void IapErase(int addr);//IAP擦除
+unsigned char IapRead(int addr);	//IAP读
+void IapWrite(int addr, unsigned char dat);	//IAP写
+void IapErase(int addr);	//IAP擦除
 
 #endif /*__IAP_H_*/

@@ -1,11 +1,12 @@
 // ==================== 引用头文件 ==================== //
 #include "stc8f.h"
 #include "sms310.h"	//短信模块
-#include "iap.h"	//EEPROM操作    
+#include "iap.h"	//EEPROM操作
+#include "wdt.h"	//看门狗    
 #include "uart1.h"	//串口1
 #include "uart2.h"	//串口2
 #include "usr_gprs_730.h"	//USR_GPRS_730 DTU模块
-#include "pcb_rs485convertor180621.h" //转换板定义
+#include "pcb_protocol_convertor.h" //协议转换板定义
 
 
 // ====================== 宏定义 ====================== //
@@ -14,7 +15,7 @@
 
 // ===================== 全局变量 ===================== //
 uint t1_cnt = 0;		//定时器1用计数
-uchar work_interval = 0;//while 工作间隔
+uchar work_interval = 5;//大循环里工作间隔
 uchar get_result = 0;	//得到结果
 uchar wait_delay = 0;	//等待应答延时
 
@@ -156,13 +157,44 @@ void main()
 	IE2 = 0x01;		//串口2中断使能
 	ET1 = 1;		//定时器1中断使能
 	EA = 1;		   	//全局中断使能
+	WDT_INIT();		//WDT初始化，
 
 	//参数配置
-	SMS310_Add = IapRead(0x0000);	//取出地址参数
+	sms310_add = IapRead(0x0000);	//取出地址参数
 	LED_nACK1 = 0;
 
 	while (1)
 	{
+		// 定期执行的任务 ----------------------		
+		if(work_interval == 0)
+		{
+			if(uart2_wait_ack == 0)	//如果收到了应答
+			{
+				LED_nACK2 = 0;	   	//收到应答指示灯点亮
+				usr_work_status = 1;//工作状态正常
+			}
+			else	//在间隔时间内没有收到应答
+			{
+				usr_work_status = 0;//工作不正常
+				LED_nACK2 = 1;		//熄灯
+			}
+
+
+			if(sms310_wait_send > 0)	//有短信待发
+			{
+				sms310_wait_send--;
+				usr_send_sms(phone[sms310_wait_send], USR_TYPE_UCS8, sms_buf, sms_len);	//通过USR_GPRS_730发送短信
+				work_interval = 10;	//间隔10秒继续发下一条
+			}
+			else	//没事作就查信号质量
+			{
+				usr_get_csq();		//查询DTU模块信号质量
+				uart2_wait_ack = 1;	//置位等待应答标志
+				work_interval = 30;	//间隔30秒重复
+			}
+		}
+
+
 	 	//串口1数据处理 MAXBUS------------------------
 		if(uart1_rc_ok == 1)
 		{
@@ -172,34 +204,6 @@ void main()
 			uart1_rc_cnt = 0;
 			uart1_rc_interval = 0;
 			uart1_rc_ok = 0;
-		}
-
-		
-
-
-		//串口2短信模块相关指令处理------------------------
-		
-		if(work_interval == 0)
-		{
-			if(uart2_wait_ack == 0)	//如果收到了应答，就查信号质量
-			{
-				LED_nACK2 = 0;	   	//收到应答指示
-				work_interval = 10;	//设定工作间隔时间
-				usr_get_csq();		// 查询DTU模块信号质量
-
-				uart2_wait_ack = 1;
-				LED_nACK2 = 1;		//熄灯
-			}
-			else
-			{
-//				LED_nACK2 = 1;
-				work_interval = 10; 	//设定工作间隔时间
-//				usr_send_sms("18273061666", 3, "我爱我的祖国", 12);
-				usr_get_csq();
-
-				uart2_wait_ack = 1;
-				LED_nACK2 = 1;		//熄灯
-			}
 		}
 
 		//串口2接收数据处理

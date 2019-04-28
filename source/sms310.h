@@ -14,14 +14,17 @@
 
 
 /*===================================全局变量==================================*/
-extern uchar idata phone[11];
-extern uchar SMS310_Add;
-extern bit SMS310_Unread;
+extern unsigned char idata sms_buf[140];	//短信缓存
+extern unsigned char xdata phone[5][11];	//号码存储区
+extern unsigned char sms_len;				//短信长度
+extern unsigned char sms310_add;	//短信模块地址
+extern unsigned char sms310_unread;	//有短信未读标志
+extern unsigned char sms310_wait_send;	//待发送短信条数
 
 
 /*===================================函数声明==================================*/
-uchar SMS310Processing(uchar* ptr, uchar len);	//数据包处理
-uchar SMS310MakeResponse(uchar* ptr, uchar len);//生成应答数据
-uchar CalculateSum(uchar* ptr, uchar len);	//和校验
+unsigned char SMS310Processing(unsigned char* ptr, unsigned char len);	//数据包处理
+unsigned char SMS310MakeResponse(unsigned char* ptr, unsigned char len);//生成应答数据
+unsigned char CalculateSum(unsigned char* ptr, unsigned char len);	//和校验
 
 #endif	/* __SMS310_H_ */

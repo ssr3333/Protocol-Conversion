@@ -25,7 +25,7 @@ void IapIdle()
  * 输  出：寄存器内容
  * 功  能：读取指定ADD的EEPROM数据
  * ===========================================================================*/
-char IapRead(int addr)
+unsigned char IapRead(int addr)
 {
     char dat;
 
@@ -48,7 +48,7 @@ char IapRead(int addr)
  * 输  出：数据内容
  * 功  能：向指定ADD的寄存器写入数据
  * ===========================================================================*/
-void IapWrite(int addr, char dat)
+void IapWrite(int addr, unsigned char dat)
 {
     IAP_CONTR = WT_12M;                         //使能IAP
     IAP_CMD = 2;                                //设置IAP写命令

@@ -378,6 +378,51 @@
             </File>
           </Files>
         </Group>
+        <Group>
+          <GroupName>include</GroupName>
+          <Files>
+            <File>
+              <FileName>pcb_protocol_convertor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\source\pcb_protocol_convertor.h</FilePath>
+            </File>
+            <File>
+              <FileName>sms310.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\source\sms310.h</FilePath>
+            </File>
+            <File>
+              <FileName>iap.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\source\iap.h</FilePath>
+            </File>
+            <File>
+              <FileName>stc8f.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\source\stc8f.h</FilePath>
+            </File>
+            <File>
+              <FileName>uart1.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\source\uart1.h</FilePath>
+            </File>
+            <File>
+              <FileName>uart2.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\source\uart2.h</FilePath>
+            </File>
+            <File>
+              <FileName>usr_gprs_730.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\source\usr_gprs_730.h</FilePath>
+            </File>
+            <File>
+              <FileName>wdt.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\source\wdt.h</FilePath>
+            </File>
+          </Files>
+        </Group>
       </Groups>
     </Target>
   </Targets>
